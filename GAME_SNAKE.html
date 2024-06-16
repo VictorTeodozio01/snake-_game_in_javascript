@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo da Cobra</title>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        #gameArea {
+            width: 400px;
+            height: 400px;
+            background-color: black;
+            position: relative;
+            overflow: hidden;
+        }
+        .snake {
+            width: 20px;
+            height: 20px;
+            background-color: lime;
+            position: absolute;
+        }
+        .food {
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            position: absolute;
+        }
+        #pauseMessage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            display: none;
+        }
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 18px;
+            color: red;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameArea"></div>
+    <div id="pauseMessage">Jogo Pausado</div>
+    <div id="score">Comida Comida: 0</div>
+    <script>
+        const gameArea = document.getElementById('gameArea');
+        const scoreElement = document.getElementById('score');
+        const gameSize = 400;
+        const snakeSize = 20;
+        let snake = [{ x: 160, y: 200 }, { x: 140, y: 200 }];
+        let food = { x: 100, y: 100 };
+        let direction = 'RIGHT';
+        let gameInterval;
+        let paused = false;
+        let foodEaten = 0;
+        let currentPhase = 1;
+
+        // Definição das cores de fundo para cada fase
+        const phaseColors = {
+            1: 'black',
+            2: 'darkgreen',
+            3: 'darkblue',
+            4: 'darkred',
+            5: 'purple',
+            6: 'gray'
+        };
+
+        function createSnakePiece(piece) {
+            const element = document.createElement('div');
+            element.style.width = `${snakeSize}px`;
+            element.style.height = `${snakeSize}px`;
+            element.style.backgroundColor = 'lime';
+            element.style.position = 'absolute';
+            element.style.left = `${piece.x}px`;
+            element.style.top = `${piece.y}px`;
+            element.classList.add('snake');
+            gameArea.appendChild(element);
+        }
+
+        function createFood() {
+            const element = document.createElement('div');
+            element.style.width = `${snakeSize}px`;
+            element.style.height = `${snakeSize}px`;
+            element.style.backgroundColor = 'red';
+            element.style.position = 'absolute';
+            element.style.left = `${food.x}px`;
+            element.style.top = `${food.y}px`;
+            element.classList.add('food');
+            gameArea.appendChild(element);
+        }
+
+        function moveSnake() {
+            if (paused) return;
+
+            const head = { x: snake[0].x, y: snake[0].y };
+            switch (direction) {
+                case 'RIGHT':
+                    head.x += snakeSize;
+                    break;
+                case 'LEFT':
+                    head.x -= snakeSize;
+                    break;
+                case 'UP':
+                    head.y -= snakeSize;
+                    break;
+                case 'DOWN':
+                    head.y += snakeSize;
+                    break;
+            }
+
+            snake.unshift(head);
+
+            if (head.x === food.x && head.y === food.y) {
+                foodEaten++;
+                scoreElement.textContent = `Comida Comida: ${foodEaten}`;
+                if (foodEaten % 5 === 0 && currentPhase < 6) {
+                    currentPhase++;
+                    gameArea.style.backgroundColor = phaseColors[currentPhase];
+                }
+                if (foodEaten === 30) {
+                    clearInterval(gameInterval);
+                    alert("Parabéns! Fase final concluída.");
+                    return;
+                }
+                generateFood();
+            } else {
+                snake.pop();
+            }
+
+            if (head.x < 0 || head.x >= gameSize || head.y < 0 || head.y >= gameSize || snakeIntersection()) {
+                clearInterval(gameInterval);
+                alert("Game Over!");
+                return;
+            }
+
+            draw();
+        }
+
+        function draw() {
+            gameArea.innerHTML = '';
+            snake.forEach(createSnakePiece);
+            createFood();
+        }
+
+        function generateFood() {
+            food = {
+                x: Math.floor(Math.random() * (gameSize / snakeSize)) * snakeSize,
+                y: Math.floor(Math.random() * (gameSize / snakeSize)) * snakeSize
+            };
+        }
+
+        function snakeIntersection() {
+            for (let i = 4; i < snake.length; i++) {
+                if (snake[i].x === snake[0].x && snake[i].y === snake[0].y) return true;
+            }
+            return false;
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                if (paused) {
+                    resumeGame();
+                } else {
+                    pauseGame();
+                }
+            }
+            switch (e.key) {
+                case 'ArrowLeft':
+                    if (direction !== 'RIGHT') direction = 'LEFT';
+                    break;
+                case 'ArrowRight':
+                    if (direction !== 'LEFT') direction = 'RIGHT';
+                    break;
+                case 'ArrowUp':
+                    if (direction !== 'DOWN') direction = 'UP';
+                    break;
+                case 'ArrowDown':
+                    if (direction !== 'UP') direction = 'DOWN';
+                    break;
+            }
+        });
+
+        function startGame() {
+            generateFood();
+            gameInterval = setInterval(moveSnake, 200);
+        }
+
+        function pauseGame() {
+            paused = true;
+            clearInterval(gameInterval);
+            document.getElementById('pauseMessage').style.display = 'block';
+        }
+
+        function resumeGame() {
+            paused = false;
+            gameInterval = setInterval(moveSnake, 200);
+            document.getElementById('pauseMessage').style.display = 'none';
+        }
+
+        startGame();
+    </script>
+</body>
+</html>
