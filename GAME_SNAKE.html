@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jogo da Cobra</title>
     <style>
+        /* Estilos básicos para o corpo e a área do jogo */
         body, html {
             height: 100%;
             margin: 0;
@@ -13,27 +14,36 @@
             align-items: center;
             background-color: #f0f0f0;
             font-family: Arial, sans-serif;
+            flex-direction: column;
         }
-        #gameArea {
+
+        /* Estilo para a área onde o jogo vai acontecer */
+        #areaJogo {
             width: 400px;
             height: 400px;
             background-color: black;
             position: relative;
             overflow: hidden;
         }
-        .snake {
+
+        /* Estilo para cada pedaço da cobra */
+        .cobra {
             width: 20px;
             height: 20px;
             background-color: lime;
             position: absolute;
         }
-        .food {
+
+        /* Estilo para o alimento da cobra */
+        .comida {
             width: 20px;
             height: 20px;
             background-color: red;
             position: absolute;
         }
-        #pauseMessage {
+
+        /* Estilo da mensagem quando o jogo estiver pausado */
+        #mensagemPausa {
             position: absolute;
             top: 50%;
             left: 50%;
@@ -44,7 +54,9 @@
             padding: 10px 20px;
             display: none;
         }
-        #score {
+
+        /* Estilo para mostrar a pontuação na tela */
+        #pontuacao {
             position: absolute;
             top: 10px;
             left: 10px;
@@ -52,27 +64,64 @@
             color: red;
             z-index: 10;
         }
+
+        /* Estilos dos botões de controle */
+        #controle {
+            display: flex;
+            justify-content: center;
+        }
+
+        .botao {
+            width: 50px;
+            height: 50px;
+            margin: 5px;
+            background-color: #444;
+            color: white;
+            font-size: 24px;
+            text-align: center;
+            line-height: 50px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .botao:active {
+            background-color: #666;
+        }
     </style>
 </head>
 <body>
-    <div id="gameArea"></div>
-    <div id="pauseMessage">Jogo Pausado</div>
-    <div id="score">Comida Comida: 0</div>
-    <script>
-        const gameArea = document.getElementById('gameArea');
-        const scoreElement = document.getElementById('score');
-        const gameSize = 400;
-        const snakeSize = 20;
-        let snake = [{ x: 160, y: 200 }, { x: 140, y: 200 }];
-        let food = { x: 100, y: 100 };
-        let direction = 'RIGHT';
-        let gameInterval;
-        let paused = false;
-        let foodEaten = 0;
-        let currentPhase = 1;
+    <div id="areaJogo"></div>
+    <div id="mensagemPausa">Jogo Pausado</div>
+    <div id="pontuacao"></div>
 
-        // Definição das cores de fundo para cada fase
-        const phaseColors = {
+    <!-- Botões de controle para celular -->
+    <div id="controle">
+        <div class="botao" id="btnCima">↑</div>
+    </div>
+    <div id="controle">
+        <div class="botao" id="btnEsquerda">←</div>
+        <div class="botao" id="btnDireita">→</div>
+    </div>
+    <div id="controle">
+        <div class="botao" id="btnBaixo">↓</div>
+    </div>
+
+    <script>
+        // Referências dos elementos da página
+        const areaJogo = document.getElementById('areaJogo'); // Área onde o jogo acontece
+        const pontuacaoElemento = document.getElementById('pontuacao'); // Exibe a pontuação
+        const tamanhoJogo = 400; // Largura e altura da área do jogo
+        const tamanhoCobra = 20; // Tamanho de cada pedaço da cobra
+        let cobra = [{ x: 160, y: 200 }, { x: 140, y: 200 }]; // Posições iniciais da cobra
+        let comida = { x: 100, y: 100 }; // Posição inicial do alimento
+        let direcao = 'DIREITA'; // Direção inicial da cobra
+        let intervaloJogo; // Controle do intervalo do jogo
+        let pausado = false; // Verifica se o jogo está pausado
+        let comidaComida = 0; // Contador de alimentos comidos
+        let faseAtual = 1; // Fase atual do jogo
+
+        // Cores de fundo para cada fase do jogo
+        const coresFases = {
             1: 'black',
             2: 'darkgreen',
             3: 'darkblue',
@@ -81,139 +130,170 @@
             6: 'gray'
         };
 
-        function createSnakePiece(piece) {
-            const element = document.createElement('div');
-            element.style.width = `${snakeSize}px`;
-            element.style.height = `${snakeSize}px`;
-            element.style.backgroundColor = 'lime';
-            element.style.position = 'absolute';
-            element.style.left = `${piece.x}px`;
-            element.style.top = `${piece.y}px`;
-            element.classList.add('snake');
-            gameArea.appendChild(element);
+        // Cria um novo pedaço da cobra na posição especificada
+        function criarPecaCobra(peca) {
+            const elemento = document.createElement('div');
+            elemento.style.width = `${tamanhoCobra}px`;
+            elemento.style.height = `${tamanhoCobra}px`;
+            elemento.style.backgroundColor = 'lime';
+            elemento.style.position = 'absolute';
+            elemento.style.left = `${peca.x}px`;
+            elemento.style.top = `${peca.y}px`;
+            elemento.classList.add('cobra');
+            areaJogo.appendChild(elemento);
         }
 
-        function createFood() {
-            const element = document.createElement('div');
-            element.style.width = `${snakeSize}px`;
-            element.style.height = `${snakeSize}px`;
-            element.style.backgroundColor = 'red';
-            element.style.position = 'absolute';
-            element.style.left = `${food.x}px`;
-            element.style.top = `${food.y}px`;
-            element.classList.add('food');
-            gameArea.appendChild(element);
+        // Cria o alimento na tela na posição atual
+        function criarComida() {
+            const elemento = document.createElement('div');
+            elemento.style.width = `${tamanhoCobra}px`;
+            elemento.style.height = `${tamanhoCobra}px`;
+            elemento.style.backgroundColor = 'red';
+            elemento.style.position = 'absolute';
+            elemento.style.left = `${comida.x}px`;
+            elemento.style.top = `${comida.y}px`;
+            elemento.classList.add('comida');
+            areaJogo.appendChild(elemento);
         }
 
-        function moveSnake() {
-            if (paused) return;
+        // Função que move a cobra de acordo com a direção atual
+        function moverCobra() {
+            if (pausado) return; // Não move a cobra se o jogo estiver pausado
 
-            const head = { x: snake[0].x, y: snake[0].y };
-            switch (direction) {
-                case 'RIGHT':
-                    head.x += snakeSize;
+            const cabeca = { x: cobra[0].x, y: cobra[0].y }; // Cria uma cópia da cabeça da cobra
+            switch (direcao) {
+                case 'DIREITA':  // Se a direção for para a direita, move a cobra para a direita
+                    cabeca.x += tamanhoCobra;
                     break;
-                case 'LEFT':
-                    head.x -= snakeSize;
+                case 'ESQUERDA':  // Se a direção for para a esquerda, move a cobra para a esquerda
+                    cabeca.x -= tamanhoCobra;
                     break;
-                case 'UP':
-                    head.y -= snakeSize;
+                case 'CIMA':  // Se a direção for para cima, move a cobra para cima
+                    cabeca.y -= tamanhoCobra;
                     break;
-                case 'DOWN':
-                    head.y += snakeSize;
+                case 'BAIXO':  // Se a direção for para baixo, move a cobra para baixo
+                    cabeca.y += tamanhoCobra;
                     break;
             }
 
-            snake.unshift(head);
+            cobra.unshift(cabeca); // Adiciona a nova cabeça da cobra no início do array
 
-            if (head.x === food.x && head.y === food.y) {
-                foodEaten++;
-                scoreElement.textContent = `Comida Comida: ${foodEaten}`;
-                if (foodEaten % 5 === 0 && currentPhase < 6) {
-                    currentPhase++;
-                    gameArea.style.backgroundColor = phaseColors[currentPhase];
+            // Verifica se a cobra comeu o alimento
+            if (cabeca.x === comida.x && cabeca.y === comida.y) {
+                comidaComida++; // Incrementa o contador de alimentos comidos
+                pontuacaoElemento.textContent = `Comida: ${comidaComida}`; // Atualiza a pontuação
+                if (comidaComida % 5 === 0 && faseAtual < 6) {
+                    faseAtual++; // Avança para a próxima fase a cada 5 alimentos comidos
+                    areaJogo.style.backgroundColor = coresFases[faseAtual]; // Muda a cor de fundo para a nova fase
                 }
-                if (foodEaten === 30) {
-                    clearInterval(gameInterval);
+                if (comidaComida === 30) { // Se o jogador comer 30 alimentos, o jogo termina
+                    clearInterval(intervaloJogo); // Para o jogo
                     alert("Parabéns! Fase final concluída.");
                     return;
                 }
-                generateFood();
+                gerarComida(); // Gera um novo alimento após comer o atual
             } else {
-                snake.pop();
+                cobra.pop(); // Remove o último pedaço da cobra se ela não tiver comido o alimento
             }
 
-            if (head.x < 0 || head.x >= gameSize || head.y < 0 || head.y >= gameSize || snakeIntersection()) {
-                clearInterval(gameInterval);
-                alert("Game Over!");
+            // Verifica se a cobra bateu nas bordas ou em si mesma
+            if (cabeca.x < 0 || cabeca.x >= tamanhoJogo || cabeca.y < 0 || cabeca.y >= tamanhoJogo || colisaoCobra()) {
+                clearInterval(intervaloJogo); // Finaliza o jogo em caso de colisão
+                alert("Fim de Jogo!");
                 return;
             }
 
-            draw();
+            desenhar(); // Redesenha o jogo (cobra e alimento)
         }
 
-        function draw() {
-            gameArea.innerHTML = '';
-            snake.forEach(createSnakePiece);
-            createFood();
+        // Função que desenha a cobra e o alimento na tela
+        function desenhar() {
+            areaJogo.innerHTML = '';  // Limpa a área do jogo
+            cobra.forEach(criarPecaCobra); // Desenha todos os pedaços da cobra
+            criarComida();  // Desenha o alimento
         }
 
-        function generateFood() {
-            food = {
-                x: Math.floor(Math.random() * (gameSize / snakeSize)) * snakeSize,
-                y: Math.floor(Math.random() * (gameSize / snakeSize)) * snakeSize
+        // Função que gera uma nova posição aleatória para o alimento
+        function gerarComida() {
+            comida = {
+                x: Math.floor(Math.random() * (tamanhoJogo / tamanhoCobra)) * tamanhoCobra,
+                y: Math.floor(Math.random() * (tamanhoJogo / tamanhoCobra)) * tamanhoCobra
             };
         }
 
-        function snakeIntersection() {
-            for (let i = 4; i < snake.length; i++) {
-                if (snake[i].x === snake[0].x && snake[i].y === snake[0].y) return true;
+        // Função que verifica se a cobra colidiu consigo mesma
+        function colisaoCobra() {
+            for (let i = 4; i < cobra.length; i++) {
+                if (cobra[i].x === cobra[0].x && cobra[i].y === cobra[0].y) return true; // Se a cabeça da cobra tocar em qualquer outro pedaço, há colisão
             }
             return false;
         }
 
+        // Função que lida com o evento de teclas pressionadas para controlar o movimento
         document.addEventListener('keydown', e => {
-            if (e.key === 'Enter') {
-                if (paused) {
-                    resumeGame();
+            if (e.key === 'Enter') {  // Pausa ou retoma o jogo ao pressionar Enter
+                if (pausado) {
+                    retomarJogo();
                 } else {
-                    pauseGame();
+                    pausarJogo();
                 }
             }
+            // Controla o movimento da cobra conforme as teclas pressionadas
             switch (e.key) {
                 case 'ArrowLeft':
-                    if (direction !== 'RIGHT') direction = 'LEFT';
+                    if (direcao !== 'DIREITA') direcao = 'ESQUERDA'; // Impede que a cobra vá para a direção oposta
                     break;
                 case 'ArrowRight':
-                    if (direction !== 'LEFT') direction = 'RIGHT';
+                    if (direcao !== 'ESQUERDA') direcao = 'DIREITA';
                     break;
                 case 'ArrowUp':
-                    if (direction !== 'DOWN') direction = 'UP';
+                    if (direcao !== 'BAIXO') direcao = 'CIMA';
                     break;
                 case 'ArrowDown':
-                    if (direction !== 'UP') direction = 'DOWN';
+                    if (direcao !== 'CIMA') direcao = 'BAIXO';
                     break;
             }
         });
 
-        function startGame() {
-            generateFood();
-            gameInterval = setInterval(moveSnake, 200);
+        // Funções para controlar a direção da cobra com os botões
+        document.getElementById('btnCima').addEventListener('click', () => {
+            if (direcao !== 'BAIXO') direcao = 'CIMA'; // Impede que a cobra vá para baixo
+        });
+
+        document.getElementById('btnBaixo').addEventListener('click', () => {
+            if (direcao !== 'CIMA') direcao = 'BAIXO'; // Impede que a cobra vá para cima
+        });
+
+        document.getElementById('btnEsquerda').addEventListener('click', () => {
+            if (direcao !== 'DIREITA') direcao = 'ESQUERDA'; // Impede que a cobra vá para a direita
+        });
+
+        document.getElementById('btnDireita').addEventListener('click', () => {
+            if (direcao !== 'ESQUERDA') direcao = 'DIREITA'; // Impede que a cobra vá para a esquerda
+        });
+
+        // Inicia o jogo
+        function iniciarJogo() {
+            gerarComida();  // Gera o alimento inicial
+            intervaloJogo = setInterval(moverCobra, 200);  // Começa o movimento da cobra a cada 200ms
         }
 
-        function pauseGame() {
-            paused = true;
-            clearInterval(gameInterval);
-            document.getElementById('pauseMessage').style.display = 'block';
+        // Pausa o jogo
+        function pausarJogo() {
+            pausado = true;
+            clearInterval(intervaloJogo);  // Interrompe o movimento da cobra
+            document.getElementById('mensagemPausa').style.display = 'block';  // Exibe a mensagem de pausa
         }
 
-        function resumeGame() {
-            paused = false;
-            gameInterval = setInterval(moveSnake, 200);
-            document.getElementById('pauseMessage').style.display = 'none';
+        // Retoma o jogo após pausa
+        function retomarJogo() {
+            pausado = false;
+            intervaloJogo = setInterval(moverCobra, 200);  // Retoma o movimento da cobra
+            document.getElementById('mensagemPausa').style.display = 'none';  // Oculta a mensagem de pausa
         }
 
-        startGame();
+        // Inicia o jogo ao carregar a página
+        iniciarJogo();
     </script>
 </body>
 </html>
